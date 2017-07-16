@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Gallery Example</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+  <style>
+  img{
+    width: 100%;
+  }
+  label{
+    padding-right:5px;
+  }
+  .row>div{
+    padding: 15px;
+  }
+  </style>
+</head>
+<body>
+
+<?php
+define('MAX_RETURNED', 12);
+define('COLUMNS', 6);
+define('ROOT_URL', 'http://data.history.sa.gov.au/');
+
+if(!isset($_GET['collection']))$collection = 'sagpc';else $collection = $_GET['collection'];
+if(!isset($_GET['startindex']))$startindex = 0;else $startindex = $_GET['startindex'];
+
+$url = ROOT_URL . $collection . '/search/category/0?maxreturned=' . MAX_RETURNED . '&startindex=' . $startindex;
+$ch = curl_init();    
+curl_setopt($ch, CURLOPT_USERAGENT, 'Govhack');
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_URL, $url);
+$result = curl_exec($ch);
+curl_close($ch);
+
+$obj = json_decode($result);
+
+/* Simple Pagination */
+$base_url = ROOT_URL .  'gallery.php?collection=' .$collection . '&startindex=';
+$next_url = '';
+$prev_url = '';
+$prev_link = '';
+if($startindex < $obj->totalcount)$next_url = $base_url . ($startindex + MAX_RETURNED);
+if($next_url)$next_link = '<a href="' . $next_url . '" class="pull-right">Next</a>'; 
+if($startindex > 0)$prev_url = $base_url . ($startindex - MAX_RETURNED); 
+if($prev_url)$prev_link = '<a href="' . $prev_url . '">Previous</a>'; 
+$nav = '<div class="container-fluid">
+          <div class="row">
+            <div class="col-sm-6">
+              ' . $prev_link . '
+            </div>
+            <div class="col-sm-6">
+              ' . $next_link . '
+            </div> 
+           </div>            
+        </div>            
+        ';          
+
+/* List of Photographs */
+$list = $nav . '<div class="container-fluid"><div class="row equal">';
+$counter = 0;
+$colspan = 12/COLUMNS;
+foreach($obj->items as $value){
+
+  $meta = "
+  <label>Title</label>{$value->Title}<br>
+  <label>Copyright</label>{$value->Copyright}<br>
+  <label>License</label>{$value->License}<br>
+  <label>Usage Restrictions</label>{$value->UsageRestrictions}<br>
+  <label>Photographer</label>{$value->Photographer}<br>
+  ";
+
+  $thumb_url = ROOT_URL . $collection . '/media/thumb/' . $value->id . '/250';
+  $preview_url = ROOT_URL . $collection . '/media/preview/' . $value->id . '?maxsize=1000';  
+  if ($counter % COLUMNS == 0)$list .= '</div><div class="row equal">'; 
+  $list .= '<div class="col-sm-2"><a href="' . $preview_url . '"><img src="' . $thumb_url . '" class="thumbnail img-responsive" /></a>' . $meta . '</div>';
+  
+  $counter++; 
+}
+$list .= '</div></div>';
+
+echo $list;
+?>
+
+</body>
+</html>
